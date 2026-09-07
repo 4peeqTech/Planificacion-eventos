@@ -120,5 +120,20 @@ export function useAllData() {
     }
   }, [holdSync]);
 
-  return { data, loading, error, saving, refresh: fetchAll, saveChecklist, saveResp, saveFaq, saveAgenda };
+  const saveMomentos = useCallback(async (items: MomentoItem[]) => {
+    setSaving(true);
+    holdSync();
+    setData((d) => ({ ...d, momentos: items }));
+    try {
+      await fetch("/api/momentos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [holdSync]);
+
+  return { data, loading, error, saving, refresh: fetchAll, saveChecklist, saveResp, saveFaq, saveAgenda, saveMomentos };
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useAllData } from "@/lib/useData";
-import type { ChecklistItem } from "@/lib/types";
+import type { ChecklistItem, MomentoItem } from "@/lib/types";
 
 const PHASE_LABEL: Record<string, string> = {
   antes: "ANTES",
@@ -21,10 +21,14 @@ function uid(prefix: string) {
 }
 
 export default function Home() {
-  const { data, loading, error, saving, saveChecklist, saveResp } = useAllData();
+  const { data, loading, error, saving, saveChecklist, saveResp, saveMomentos } = useAllData();
   const [activeStation, setActiveStation] = useState<string | null>(null);
   const [newTaskText, setNewTaskText] = useState("");
   const [filterPhase, setFilterPhase] = useState<string>("todas");
+  const [editMomentos, setEditMomentos] = useState(false);
+  const [newMomentoTitle, setNewMomentoTitle] = useState<Record<string, string>>({});
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskText, setEditingTaskText] = useState("");
 
   const momentosByPhase = useMemo(() => {
     const grouped: Record<string, typeof data.momentos> = { antes: [], durante: [], despues: [] };
@@ -88,9 +92,55 @@ export default function Home() {
     saveChecklist(data.checklist.filter((c) => c.id !== id));
   }
 
+  function startEditTask(item: ChecklistItem) {
+    setEditingTaskId(item.id);
+    setEditingTaskText(item.text);
+  }
+
+  function saveEditTask() {
+    if (!editingTaskId) return;
+    const text = editingTaskText.trim();
+    if (text) {
+      saveChecklist(data.checklist.map((c) => (c.id === editingTaskId ? { ...c, text } : c)));
+    }
+    setEditingTaskId(null);
+  }
+
   function updatePeople(stationId: string, peopleText: string) {
     const others = data.resp.filter((r) => r.stationId !== stationId);
     saveResp([...others, { stationId, people: peopleText }]);
+  }
+
+  function updateMomentoTitle(stationId: string, title: string) {
+    saveMomentos(data.momentos.map((m) => (m.stationId === stationId ? { ...m, title } : m)));
+  }
+
+  function updateMomentoPhase(stationId: string, phase: string) {
+    saveMomentos(data.momentos.map((m) => (m.stationId === stationId ? { ...m, phase } : m)));
+  }
+
+  function addMomento(phase: string) {
+    const text = (newMomentoTitle[phase] || "").trim();
+    if (!text) return;
+    const existing = momentosByPhase[phase] || [];
+    const maxOrder = existing.reduce((m, x) => Math.max(m, x.order), -1);
+    const newItem: MomentoItem = {
+      stationId: uid("st"),
+      phase,
+      title: text,
+      order: maxOrder + 1,
+      no: "",
+    };
+    saveMomentos([...data.momentos, newItem]);
+    setNewMomentoTitle((s) => ({ ...s, [phase]: "" }));
+  }
+
+  function deleteMomento(stationId: string) {
+    if (!window.confirm("¿Borrar esta estación? También se van a borrar sus tareas y responsables.")) return;
+    saveMomentos(data.momentos.filter((m) => m.stationId !== stationId));
+    saveChecklist(data.checklist.filter((c) => c.stationId !== stationId));
+    saveResp(data.resp.filter((r) => r.stationId !== stationId));
+    if (activeStation === stationId) setActiveStation(null);
   }
 
   const visiblePhases = filterPhase === "todas" ? PHASE_ORDER : [filterPhase];
@@ -141,6 +191,22 @@ export default function Home() {
             {p === "todas" ? "Todas" : PHASE_LABEL[p]}
           </button>
         ))}
+        <button
+          onClick={() => setEditMomentos((v) => !v)}
+          style={{
+            marginLeft: "auto",
+            border: "1px solid " + (editMomentos ? "#7764A9" : "#DCD3EA"),
+            background: editMomentos ? "#7764A9" : "#fff",
+            color: editMomentos ? "#fff" : "#514C6B",
+            borderRadius: 999,
+            padding: "6px 14px",
+            fontSize: 12.5,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          {editMomentos ? "✓ Listo" : "✎ Editar estaciones"}
+        </button>
       </div>
 
       {loading ? (
@@ -149,7 +215,7 @@ export default function Home() {
         <main style={{ padding: "10px 20px 60px", display: "flex", flexDirection: "column", gap: 26 }}>
           {visiblePhases.map((phase) => {
             const moments = momentosByPhase[phase] || [];
-            if (moments.length === 0) return null;
+            if (moments.length === 0 && !editMomentos) return null;
             return (
               <section key={phase}>
                 <h2
@@ -180,27 +246,77 @@ export default function Home() {
                           padding: 14,
                         }}
                       >
-                        <button
-                          onClick={() => setActiveStation(isOpen ? null : m.stationId)}
-                          style={{
-                            all: "unset",
-                            cursor: "pointer",
-                            display: "block",
-                            width: "100%",
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontSize: 13.5, fontWeight: 700 }}>{m.title}</span>
-                            <span style={{ marginLeft: "auto", fontSize: 12, color: "#514C6B" }}>
-                              {done}/{tasks.length}
-                            </span>
-                          </div>
-                          {respByStation[m.stationId] && (
-                            <div style={{ fontSize: 11.5, color: "#514C6B", marginTop: 4 }}>
-                              👤 {respByStation[m.stationId]}
+                        {editMomentos ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <input
+                                value={m.title}
+                                onChange={(e) => updateMomentoTitle(m.stationId, e.target.value)}
+                                style={{
+                                  flex: 1,
+                                  border: "1px solid #DCD3EA",
+                                  borderRadius: 7,
+                                  padding: "6px 9px",
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                }}
+                              />
+                              <button
+                                onClick={() => deleteMomento(m.stationId)}
+                                aria-label="Borrar estación"
+                                style={{
+                                  border: "1px solid #e0b4b4",
+                                  background: "#fff",
+                                  color: "#c0392b",
+                                  borderRadius: 7,
+                                  padding: "0 10px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                🗑
+                              </button>
                             </div>
-                          )}
-                        </button>
+                            <select
+                              value={m.phase}
+                              onChange={(e) => updateMomentoPhase(m.stationId, e.target.value)}
+                              style={{
+                                border: "1px solid #DCD3EA",
+                                borderRadius: 7,
+                                padding: "6px 9px",
+                                fontSize: 12.5,
+                                color: "#514C6B",
+                              }}
+                            >
+                              {PHASE_ORDER.map((ph) => (
+                                <option key={ph} value={ph}>
+                                  {PHASE_LABEL[ph]}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setActiveStation(isOpen ? null : m.stationId)}
+                            style={{
+                              all: "unset",
+                              cursor: "pointer",
+                              display: "block",
+                              width: "100%",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 13.5, fontWeight: 700 }}>{m.title}</span>
+                              <span style={{ marginLeft: "auto", fontSize: 12, color: "#514C6B" }}>
+                                {done}/{tasks.length}
+                              </span>
+                            </div>
+                            {respByStation[m.stationId] && (
+                              <div style={{ fontSize: 11.5, color: "#514C6B", marginTop: 4 }}>
+                                👤 {respByStation[m.stationId]}
+                              </div>
+                            )}
+                          </button>
+                        )}
 
                         {isOpen && (
                           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -233,29 +349,64 @@ export default function Home() {
                                     onChange={() => toggleTask(t)}
                                     style={{ marginTop: 2, accentColor: "#7764A9", cursor: "pointer" }}
                                   />
-                                  <span
+                                  {editingTaskId === t.id ? (
+                                    <input
+                                      autoFocus
+                                      value={editingTaskText}
+                                      onChange={(e) => setEditingTaskText(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") saveEditTask();
+                                        if (e.key === "Escape") setEditingTaskId(null);
+                                      }}
+                                      onBlur={saveEditTask}
+                                      style={{
+                                        flex: 1,
+                                        border: "1px solid #7764A9",
+                                        borderRadius: 6,
+                                        padding: "3px 6px",
+                                        fontSize: 13,
+                                      }}
+                                    />
+                                  ) : (
+                                    <span
+                                      onDoubleClick={() => startEditTask(t)}
+                                      style={{
+                                        fontSize: 13,
+                                        flex: 1,
+                                        cursor: "text",
+                                        textDecoration: t.checked ? "line-through" : "none",
+                                        color: t.checked ? "#999" : "#15142B",
+                                      }}
+                                    >
+                                      {t.text}
+                                      {t.files && (
+                                        <div style={{ fontSize: 11, marginTop: 2 }}>
+                                          {t.files.split(";").map((u, i) => {
+                                            const url = u.trim();
+                                            if (!url) return null;
+                                            return (
+                                              <a key={i} href={url} target="_blank" rel="noreferrer" style={{ color: "#7764A9", marginRight: 6 }}>
+                                                📎 archivo
+                                              </a>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </span>
+                                  )}
+                                  <button
+                                    onClick={() => startEditTask(t)}
                                     style={{
-                                      fontSize: 13,
-                                      flex: 1,
-                                      textDecoration: t.checked ? "line-through" : "none",
-                                      color: t.checked ? "#999" : "#15142B",
+                                      all: "unset",
+                                      cursor: "pointer",
+                                      color: "#999",
+                                      fontSize: 12,
+                                      padding: "0 4px",
                                     }}
+                                    aria-label="Editar"
                                   >
-                                    {t.text}
-                                    {t.files && (
-                                      <div style={{ fontSize: 11, marginTop: 2 }}>
-                                        {t.files.split(";").map((u, i) => {
-                                          const url = u.trim();
-                                          if (!url) return null;
-                                          return (
-                                            <a key={i} href={url} target="_blank" rel="noreferrer" style={{ color: "#7764A9", marginRight: 6 }}>
-                                              📎 archivo
-                                            </a>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </span>
+                                    ✎
+                                  </button>
                                   <button
                                     onClick={() => deleteTask(t.id)}
                                     style={{
@@ -309,6 +460,49 @@ export default function Home() {
                       </div>
                     );
                   })}
+                  {editMomentos && (
+                    <div
+                      style={{
+                        border: "1px dashed #DCD3EA",
+                        borderRadius: 12,
+                        padding: 14,
+                        display: "flex",
+                        gap: 6,
+                        alignItems: "center",
+                      }}
+                    >
+                      <input
+                        value={newMomentoTitle[phase] || ""}
+                        onChange={(e) => setNewMomentoTitle((s) => ({ ...s, [phase]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") addMomento(phase);
+                        }}
+                        placeholder="Nueva estación…"
+                        style={{
+                          flex: 1,
+                          border: "1px solid #DCD3EA",
+                          borderRadius: 7,
+                          padding: "6px 9px",
+                          fontSize: 12.5,
+                        }}
+                      />
+                      <button
+                        onClick={() => addMomento(phase)}
+                        style={{
+                          background: "#7764A9",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 7,
+                          padding: "6px 12px",
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                  )}
                 </div>
               </section>
             );
