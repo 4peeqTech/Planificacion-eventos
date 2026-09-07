@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAllData } from "@/lib/useData";
 import type { ChecklistItem, MomentoItem } from "@/lib/types";
 
@@ -21,6 +22,7 @@ function uid(prefix: string) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const { data, loading, error, saving, saveChecklist, saveResp, saveMomentos } = useAllData();
   const [activeStation, setActiveStation] = useState<string | null>(null);
   const [newTaskText, setNewTaskText] = useState("");
@@ -145,6 +147,12 @@ export default function Home() {
 
   const visiblePhases = filterPhase === "todas" ? PHASE_ORDER : [filterPhase];
 
+  async function logout() {
+    await fetch("/api/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: "#F7F5FA", fontFamily: "system-ui, sans-serif", color: "#15142B" }}>
       <header
@@ -167,6 +175,21 @@ export default function Home() {
           {saving && <span>Guardando…</span>}
           {!saving && !loading && <span>{doneTasks}/{totalTasks} tareas hechas</span>}
           {error && <span style={{ color: "#c0392b" }}>Error: {error}</span>}
+          <button
+            onClick={logout}
+            style={{
+              border: "1px solid #DCD3EA",
+              background: "#fff",
+              color: "#514C6B",
+              borderRadius: 999,
+              padding: "6px 14px",
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Cerrar sesión
+          </button>
         </div>
       </header>
 
