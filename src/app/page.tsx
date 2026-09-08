@@ -62,6 +62,29 @@ export default function Home() {
     return map;
   }, [data.resp]);
 
+  // stationId que aparecen en tareas/responsables pero no tienen su estación (Momentos) creada.
+  const orphanStationIds = useMemo(() => {
+    const known = new Set(data.momentos.map((m) => m.stationId));
+    const found = new Set<string>();
+    for (const c of data.checklist) if (c.stationId && !known.has(c.stationId)) found.add(c.stationId);
+    for (const r of data.resp) if (r.stationId && !known.has(r.stationId)) found.add(r.stationId);
+    return Array.from(found);
+  }, [data.checklist, data.resp, data.momentos]);
+
+  function createOrphanStations() {
+    if (orphanStationIds.length === 0) return;
+    const maxOrder = (momentosByPhase["antes"] || []).reduce((m, x) => Math.max(m, x.order), -1);
+    const newItems: MomentoItem[] = orphanStationIds.map((id, i) => ({
+      stationId: id,
+      phase: "antes",
+      title: id,
+      order: maxOrder + 1 + i,
+      no: "",
+    }));
+    saveMomentos([...data.momentos, ...newItems]);
+    setEditMomentos(true);
+  }
+
   const totalTasks = data.checklist.length;
   const doneTasks = data.checklist.filter((c) => c.checked).length;
 
@@ -247,6 +270,43 @@ export default function Home() {
           {editMomentos ? "✓ Listo" : "✎ Editar estaciones"}
         </button>
       </div>
+
+      {!loading && orphanStationIds.length > 0 && (
+        <div
+          style={{
+            margin: "0 20px 14px",
+            background: "#FFF7E6",
+            border: "1px solid #F0D999",
+            borderRadius: 10,
+            padding: "10px 14px",
+            fontSize: 12.5,
+            color: "#7a5c00",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <span>
+            ⚠️ Hay {orphanStationIds.length} estación(es) con tareas o responsables cargados pero sin nombre/fase definidos en &quot;Momentos&quot;.
+          </span>
+          <button
+            onClick={createOrphanStations}
+            style={{
+              background: "#7764A9",
+              color: "#fff",
+              border: "none",
+              borderRadius: 7,
+              padding: "6px 12px",
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Crear estaciones automáticamente
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ padding: 40, textAlign: "center", color: "#514C6B" }}>Cargando…</div>
