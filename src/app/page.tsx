@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAllData } from "@/lib/useData";
-import type { ChecklistItem, MomentoItem } from "@/lib/types";
+import type { ChecklistItem, MomentoItem, RespItem } from "@/lib/types";
 
 const PHASE_LABEL: Record<string, string> = {
   antes: "ANTES",
@@ -106,6 +106,62 @@ export default function Home() {
       return true;
     });
     saveMomentos(deduped);
+  }
+
+  // Grupos de estaciones que tienen el MISMO nombre pero un stationId
+  // distinto (dos filas separadas que en realidad son la misma estación).
+  const titleDuplicateGroups = useMemo(() => {
+    const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+    const byTitle: Record<string, MomentoItem[]> = {};
+    for (const m of data.momentos) {
+      const key = norm(m.title);
+      if (!key) continue;
+      if (!byTitle[key]) byTitle[key] = [];
+      byTitle[key].push(m);
+    }
+    return Object.values(byTitle)
+      .map((group) => {
+        const uniqueByStation = new Map<string, MomentoItem>();
+        for (const m of group) if (!uniqueByStation.has(m.stationId)) uniqueByStation.set(m.stationId, m);
+        return Array.from(uniqueByStation.values());
+      })
+      .filter((group) => group.length > 1);
+  }, [data.momentos]);
+
+  function mergeTitleDuplicates() {
+    if (saving || titleDuplicateGroups.length === 0) return;
+
+    const idMap = new Map<string, string>(); // stationId a fusionar -> stationId que queda
+    const removeIds = new Set<string>();
+    for (const group of titleDuplicateGroups) {
+      const sorted = [...group].sort((a, b) => a.order - b.order);
+      const canonical = sorted[0];
+      for (const dup of sorted.slice(1)) {
+        idMap.set(dup.stationId, canonical.stationId);
+        removeIds.add(dup.stationId);
+      }
+    }
+
+    const newMomentos = data.momentos.filter((m) => !removeIds.has(m.stationId));
+    const newChecklist = data.checklist.map((c) =>
+      idMap.has(c.stationId) ? { ...c, stationId: idMap.get(c.stationId)! } : c
+    );
+
+    const peopleByCanonical = new Map<string, Set<string>>();
+    for (const r of data.resp) {
+      const canonicalId = idMap.get(r.stationId) || r.stationId;
+      const set = peopleByCanonical.get(canonicalId) || new Set<string>();
+      for (const person of r.people.split(",").map((p) => p.trim()).filter(Boolean)) set.add(person);
+      peopleByCanonical.set(canonicalId, set);
+    }
+    const newResp: RespItem[] = Array.from(peopleByCanonical.entries()).map(([stationId, people]) => ({
+      stationId,
+      people: Array.from(people).join(", "),
+    }));
+
+    saveMomentos(newMomentos);
+    saveChecklist(newChecklist);
+    saveResp(newResp);
   }
 
   const totalTasks = data.checklist.length;
@@ -368,6 +424,45 @@ export default function Home() {
             }}
           >
             {saving ? "Guardando…" : "Eliminar duplicados"}
+          </button>
+        </div>
+      )}
+
+      {!loading && titleDuplicateGroups.length > 0 && (
+        <div
+          style={{
+            margin: "0 20px 14px",
+            background: "#FDECEB",
+            border: "1px solid #E7B3AC",
+            borderRadius: 10,
+            padding: "10px 14px",
+            fontSize: 12.5,
+            color: "#8a2f1f",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <span>
+            ⚠️ Hay {titleDuplicateGroups.length} estación(es) con el mismo nombre repetidas en tarjetas separadas (id interno distinto). Se pueden fusionar en una sola, uniendo sus tareas y responsables.
+          </span>
+          <button
+            onClick={mergeTitleDuplicates}
+            disabled={saving}
+            style={{
+              background: "#c0392b",
+              color: "#fff",
+              border: "none",
+              borderRadius: 7,
+              padding: "6px 12px",
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: saving ? "default" : "pointer",
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            {saving ? "Guardando…" : "Fusionar duplicados"}
           </button>
         </div>
       )}
