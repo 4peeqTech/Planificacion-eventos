@@ -20,5 +20,68 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, Arial, Helvetica, sans-serif;
+}
+
+/* --- Pymetón: layout responsivo --- */
+.station-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+/* --- Pymetón: micro-interacciones --- */
+.station-card,
+.pill-btn,
+.icon-btn {
+  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.station-card:hover {
+  box-shadow: 0 4px 16px rgba(21, 20, 43, 0.08);
+  border-color: #c9bce0 !important;
+}
+
+.pill-btn:hover {
+  border-color: #7764a9 !important;
+}
+
+.icon-btn:hover {
+  color: #7764a9 !important;
+}
+
+.danger-btn {
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.danger-btn:hover {
+  background: #fdeceb !important;
+  border-color: #c0392b !important;
+}
+
+.progress-fill {
+  transition: width 0.35s ease;
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    padding: 10px 14px !important;
+  }
+  .app-title {
+    font-size: 15px !important;
+  }
+  .app-filters {
+    padding: 10px 14px 4px !important;
+  }
+  .app-main {
+    padding: 8px 14px 48px !important;
+    gap: 20px !important;
+  }
+  .station-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .station-card {
+    padding: 12px !important;
+  }
 }

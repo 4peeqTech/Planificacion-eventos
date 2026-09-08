@@ -153,9 +153,12 @@ export default function Home() {
     router.refresh();
   }
 
+  const overallPct = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
+
   return (
-    <div style={{ minHeight: "100vh", background: "#F7F5FA", fontFamily: "system-ui, sans-serif", color: "#15142B" }}>
+    <div style={{ minHeight: "100vh", background: "#F7F5FA", color: "#15142B" }}>
       <header
+        className="app-header"
         style={{
           position: "sticky",
           top: 0,
@@ -170,13 +173,24 @@ export default function Home() {
         }}
       >
         <span style={{ fontSize: 22 }}>🎤</span>
-        <h1 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Pymetón La Conferencia</h1>
+        <h1 className="app-title" style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Pymetón La Conferencia</h1>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#514C6B" }}>
           {saving && <span>Guardando…</span>}
-          {!saving && !loading && <span>{doneTasks}/{totalTasks} tareas hechas</span>}
+          {!saving && !loading && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span>{doneTasks}/{totalTasks} tareas hechas</span>
+              <div style={{ width: 72, height: 6, borderRadius: 999, background: "#EFE9F5", overflow: "hidden" }}>
+                <div
+                  className="progress-fill"
+                  style={{ width: `${overallPct}%`, height: "100%", background: "#7764A9", borderRadius: 999 }}
+                />
+              </div>
+            </div>
+          )}
           {error && <span style={{ color: "#c0392b" }}>Error: {error}</span>}
           <button
             onClick={logout}
+            className="pill-btn"
             style={{
               border: "1px solid #DCD3EA",
               background: "#fff",
@@ -193,11 +207,12 @@ export default function Home() {
         </div>
       </header>
 
-      <div style={{ padding: "14px 20px 6px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div className="app-filters" style={{ padding: "14px 20px 6px", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {["todas", ...PHASE_ORDER].map((p) => (
           <button
             key={p}
             onClick={() => setFilterPhase(p)}
+            className="pill-btn"
             style={{
               border: "1px solid " + (filterPhase === p ? "#7764A9" : "#DCD3EA"),
               background: filterPhase === p ? "#EFE9F5" : "#fff",
@@ -216,6 +231,7 @@ export default function Home() {
         ))}
         <button
           onClick={() => setEditMomentos((v) => !v)}
+          className="pill-btn"
           style={{
             marginLeft: "auto",
             border: "1px solid " + (editMomentos ? "#7764A9" : "#DCD3EA"),
@@ -235,7 +251,7 @@ export default function Home() {
       {loading ? (
         <div style={{ padding: 40, textAlign: "center", color: "#514C6B" }}>Cargando…</div>
       ) : (
-        <main style={{ padding: "10px 20px 60px", display: "flex", flexDirection: "column", gap: 26 }}>
+        <main className="app-main" style={{ padding: "10px 20px 60px", display: "flex", flexDirection: "column", gap: 26 }}>
           {visiblePhases.map((phase) => {
             const moments = momentosByPhase[phase] || [];
             if (moments.length === 0 && !editMomentos) return null;
@@ -254,14 +270,16 @@ export default function Home() {
                 >
                   {PHASE_LABEL[phase]}
                 </h2>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
+                <div className="station-grid">
                   {moments.map((m) => {
                     const tasks = checklistByStation[m.stationId] || [];
                     const done = tasks.filter((t) => t.checked).length;
+                    const stationPct = tasks.length === 0 ? 0 : Math.round((done / tasks.length) * 100);
                     const isOpen = activeStation === m.stationId;
                     return (
                       <div
                         key={m.stationId}
+                        className="station-card"
                         style={{
                           background: "#fff",
                           border: "1px solid #DCD3EA",
@@ -286,6 +304,7 @@ export default function Home() {
                               />
                               <button
                                 onClick={() => deleteMomento(m.stationId)}
+                                className="danger-btn"
                                 aria-label="Borrar estación"
                                 style={{
                                   border: "1px solid #e0b4b4",
@@ -333,6 +352,14 @@ export default function Home() {
                                 {done}/{tasks.length}
                               </span>
                             </div>
+                            {tasks.length > 0 && (
+                              <div style={{ width: "100%", height: 5, borderRadius: 999, background: "#EFE9F5", overflow: "hidden", marginTop: 6 }}>
+                                <div
+                                  className="progress-fill"
+                                  style={{ width: `${stationPct}%`, height: "100%", background: PHASE_COLOR[m.phase] || "#7764A9", borderRadius: 999 }}
+                                />
+                              </div>
+                            )}
                             {respByStation[m.stationId] && (
                               <div style={{ fontSize: 11.5, color: "#514C6B", marginTop: 4 }}>
                                 👤 {respByStation[m.stationId]}
@@ -419,6 +446,7 @@ export default function Home() {
                                   )}
                                   <button
                                     onClick={() => startEditTask(t)}
+                                    className="icon-btn"
                                     style={{
                                       all: "unset",
                                       cursor: "pointer",
@@ -432,6 +460,7 @@ export default function Home() {
                                   </button>
                                   <button
                                     onClick={() => deleteTask(t.id)}
+                                    className="icon-btn"
                                     style={{
                                       all: "unset",
                                       cursor: "pointer",
