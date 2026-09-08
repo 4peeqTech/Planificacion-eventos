@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAllData } from "@/lib/useData";
-import type { ChecklistItem, MomentoItem, RespItem } from "@/lib/types";
+import type { ChecklistItem, MomentoItem, RespItem, AgendaItem } from "@/lib/types";
 
 const PHASE_LABEL: Record<string, string> = {
   antes: "ANTES",
@@ -23,7 +23,8 @@ function uid(prefix: string) {
 
 export default function Home() {
   const router = useRouter();
-  const { data, loading, error, saving, saveChecklist, saveResp, saveMomentos } = useAllData();
+  const { data, loading, error, saving, saveChecklist, saveResp, saveMomentos, saveAgenda } = useAllData();
+  const [view, setView] = useState<"tareas" | "agenda">("tareas");
   const [activeStation, setActiveStation] = useState<string | null>(null);
   const [newTaskText, setNewTaskText] = useState("");
   const [filterPhase, setFilterPhase] = useState<string>("todas");
@@ -162,6 +163,27 @@ export default function Home() {
     saveMomentos(newMomentos);
     saveChecklist(newChecklist);
     saveResp(newResp);
+  }
+
+  const sortedAgenda = useMemo(() => {
+    return [...data.agenda].sort((a, b) => {
+      if (a.start && b.start && a.start !== b.start) return a.start < b.start ? -1 : 1;
+      return a.order - b.order;
+    });
+  }, [data.agenda]);
+
+  function updateAgendaField(id: string, field: "start" | "end" | "activity" | "resp", value: string) {
+    saveAgenda(data.agenda.map((a) => (a.id === id ? { ...a, [field]: value } : a)));
+  }
+
+  function addAgendaItem() {
+    const maxOrder = data.agenda.reduce((m, a) => Math.max(m, a.order), -1);
+    const newItem: AgendaItem = { id: uid("age"), start: "", end: "", activity: "", resp: "", order: maxOrder + 1 };
+    saveAgenda([...data.agenda, newItem]);
+  }
+
+  function deleteAgendaItem(id: string) {
+    saveAgenda(data.agenda.filter((a) => a.id !== id));
   }
 
   const totalTasks = data.checklist.length;
@@ -309,6 +331,29 @@ export default function Home() {
         </div>
       </header>
 
+      <div style={{ padding: "14px 20px 0", display: "flex", gap: 8 }}>
+        {(["tareas", "agenda"] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className="pill-btn"
+            style={{
+              border: "none",
+              borderBottom: "2px solid " + (view === v ? "#7764A9" : "transparent"),
+              background: "transparent",
+              color: view === v ? "#7764A9" : "#514C6B",
+              padding: "4px 4px 8px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {v === "tareas" ? "Tareas" : "Agenda"}
+          </button>
+        ))}
+      </div>
+
+      {view === "tareas" && (
       <div className="app-filters" style={{ padding: "14px 20px 6px", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {["todas", ...PHASE_ORDER].map((p) => (
           <button
@@ -778,6 +823,86 @@ export default function Home() {
               </section>
             );
           })}
+        </main>
+      )}
+      )}
+
+      {view === "agenda" && loading && (
+        <div style={{ padding: 40, textAlign: "center", color: "#514C6B" }}>Cargando…</div>
+      )}
+
+      {view === "agenda" && !loading && (
+        <main className="app-main" style={{ padding: "10px 20px 60px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ background: "#fff", border: "1px solid #DCD3EA", borderRadius: 12, padding: 14 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "0 0 10px", fontSize: 11.5, fontWeight: 700, color: "#514C6B", textTransform: "uppercase", letterSpacing: 0.04, borderBottom: "1px solid #EFE9F5" }}>
+              <span style={{ width: 90 }}>Inicio</span>
+              <span style={{ width: 90 }}>Fin</span>
+              <span style={{ flex: 1 }}>Actividad</span>
+              <span style={{ width: 160 }}>Responsable</span>
+              <span style={{ width: 24 }} />
+            </div>
+            {sortedAgenda.length === 0 && (
+              <div style={{ padding: "18px 0", textAlign: "center", color: "#514C6B", fontSize: 13 }}>
+                Todavía no hay actividades cargadas en el cronograma.
+              </div>
+            )}
+            {sortedAgenda.map((a) => (
+              <div
+                key={a.id}
+                style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: "1px solid #EFE9F5", flexWrap: "wrap" }}
+              >
+                <input
+                  type="time"
+                  value={a.start}
+                  onChange={(e) => updateAgendaField(a.id, "start", e.target.value)}
+                  style={{ width: 90, border: "1px solid #DCD3EA", borderRadius: 7, padding: "6px 8px", fontSize: 12.5 }}
+                />
+                <input
+                  type="time"
+                  value={a.end}
+                  onChange={(e) => updateAgendaField(a.id, "end", e.target.value)}
+                  style={{ width: 90, border: "1px solid #DCD3EA", borderRadius: 7, padding: "6px 8px", fontSize: 12.5 }}
+                />
+                <input
+                  value={a.activity}
+                  onChange={(e) => updateAgendaField(a.id, "activity", e.target.value)}
+                  placeholder="Actividad"
+                  style={{ flex: "1 1 200px", border: "1px solid #DCD3EA", borderRadius: 7, padding: "6px 8px", fontSize: 13 }}
+                />
+                <input
+                  value={a.resp}
+                  onChange={(e) => updateAgendaField(a.id, "resp", e.target.value)}
+                  placeholder="Responsable"
+                  style={{ width: 160, border: "1px solid #DCD3EA", borderRadius: 7, padding: "6px 8px", fontSize: 12.5 }}
+                />
+                <button
+                  onClick={() => deleteAgendaItem(a.id)}
+                  className="icon-btn"
+                  aria-label="Eliminar"
+                  style={{ all: "unset", cursor: "pointer", color: "#999", fontSize: 15, padding: "0 4px", width: 16 }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={addAgendaItem}
+              className="pill-btn"
+              style={{
+                marginTop: 12,
+                background: "#7764A9",
+                color: "#fff",
+                border: "none",
+                borderRadius: 7,
+                padding: "8px 14px",
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              + Agregar actividad
+            </button>
+          </div>
         </main>
       )}
     </div>
