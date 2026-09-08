@@ -72,7 +72,7 @@ export default function Home() {
   }, [data.checklist, data.resp, data.momentos]);
 
   function createOrphanStations() {
-    if (orphanStationIds.length === 0) return;
+    if (saving || orphanStationIds.length === 0) return;
     const maxOrder = (momentosByPhase["antes"] || []).reduce((m, x) => Math.max(m, x.order), -1);
     const newItems: MomentoItem[] = orphanStationIds.map((id, i) => ({
       stationId: id,
@@ -83,6 +83,29 @@ export default function Home() {
     }));
     saveMomentos([...data.momentos, ...newItems]);
     setEditMomentos(true);
+  }
+
+  // Estaciones con el mismo stationId repetido (por ej. si el botón de arriba
+  // se disparó dos veces antes de reflejar el primer guardado).
+  const duplicateStationIds = useMemo(() => {
+    const seen = new Set<string>();
+    const dupes = new Set<string>();
+    for (const m of data.momentos) {
+      if (seen.has(m.stationId)) dupes.add(m.stationId);
+      seen.add(m.stationId);
+    }
+    return Array.from(dupes);
+  }, [data.momentos]);
+
+  function removeDuplicateMomentos() {
+    if (saving || duplicateStationIds.length === 0) return;
+    const seen = new Set<string>();
+    const deduped = data.momentos.filter((m) => {
+      if (seen.has(m.stationId)) return false;
+      seen.add(m.stationId);
+      return true;
+    });
+    saveMomentos(deduped);
   }
 
   const totalTasks = data.checklist.length;
@@ -292,6 +315,7 @@ export default function Home() {
           </span>
           <button
             onClick={createOrphanStations}
+            disabled={saving}
             style={{
               background: "#7764A9",
               color: "#fff",
@@ -300,10 +324,50 @@ export default function Home() {
               padding: "6px 12px",
               fontSize: 12.5,
               fontWeight: 600,
-              cursor: "pointer",
+              cursor: saving ? "default" : "pointer",
+              opacity: saving ? 0.6 : 1,
             }}
           >
-            Crear estaciones automáticamente
+            {saving ? "Guardando…" : "Crear estaciones automáticamente"}
+          </button>
+        </div>
+      )}
+
+      {!loading && duplicateStationIds.length > 0 && (
+        <div
+          style={{
+            margin: "0 20px 14px",
+            background: "#FDECEB",
+            border: "1px solid #E7B3AC",
+            borderRadius: 10,
+            padding: "10px 14px",
+            fontSize: 12.5,
+            color: "#8a2f1f",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <span>
+            ⚠️ Hay {duplicateStationIds.length} estación(es) duplicada(s) (mismo id repetido, probablemente por un doble click). Se ven repetidas en pantalla.
+          </span>
+          <button
+            onClick={removeDuplicateMomentos}
+            disabled={saving}
+            style={{
+              background: "#c0392b",
+              color: "#fff",
+              border: "none",
+              borderRadius: 7,
+              padding: "6px 12px",
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: saving ? "default" : "pointer",
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            {saving ? "Guardando…" : "Eliminar duplicados"}
           </button>
         </div>
       )}

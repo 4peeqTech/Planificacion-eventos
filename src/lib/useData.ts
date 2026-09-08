@@ -22,13 +22,17 @@ export function useAllData() {
   // Mientras el usuario está escribiendo/editando localmente, no queremos que
   // el polling le pise los cambios a mitad de camino.
   const suppressUntil = useRef<number>(0);
+  // Cuántos guardados hay en vuelo ahora mismo. Mientras haya alguno, el
+  // polling ignora lo que llegue: no importa cuánto tarde Google Sheets en
+  // responder, nunca vamos a pisar el estado optimista con datos viejos.
+  const pendingWrites = useRef(0);
 
   const fetchAll = useCallback(async () => {
     try {
       const res = await fetch("/api/all", { cache: "no-store" });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || "Error al leer datos");
-      if (Date.now() > suppressUntil.current) {
+      if (pendingWrites.current === 0 && Date.now() > suppressUntil.current) {
         setData({
           checklist: (json.checklist || []).map((c: ChecklistItem & { checked: unknown; order: unknown }) => ({
             ...c,
@@ -60,80 +64,32 @@ export function useAllData() {
     suppressUntil.current = Date.now() + ms;
   }, []);
 
-  const saveChecklist = useCallback(async (items: ChecklistItem[]) => {
-    setSaving(true);
-    holdSync();
-    setData((d) => ({ ...d, checklist: items }));
-    try {
-      await fetch("/api/checklist", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [holdSync]);
+  /** Guarda una pestaña completa, protegiendo el estado local de un poll que llegue mientras el request sigue en vuelo. */
+  const saveTab = useCallback(
+    async <K extends keyof AllData>(key: K, url: string, items: AllData[K]) => {
+      pendingWrites.current += 1;
+      setSaving(true);
+      setData((d) => ({ ...d, [key]: items }));
+      try {
+        await fetch(url, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items }),
+        });
+      } finally {
+        pendingWrites.current -= 1;
+        holdSync(); // margen extra por si Google Sheets tarda en propagar la escritura
+        setSaving(false);
+      }
+    },
+    [holdSync]
+  );
 
-  const saveResp = useCallback(async (items: RespItem[]) => {
-    setSaving(true);
-    holdSync();
-    setData((d) => ({ ...d, resp: items }));
-    try {
-      await fetch("/api/resp", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [holdSync]);
-
-  const saveFaq = useCallback(async (items: FaqItem[]) => {
-    setSaving(true);
-    holdSync();
-    setData((d) => ({ ...d, faq: items }));
-    try {
-      await fetch("/api/faq", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [holdSync]);
-
-  const saveAgenda = useCallback(async (items: AgendaItem[]) => {
-    setSaving(true);
-    holdSync();
-    setData((d) => ({ ...d, agenda: items }));
-    try {
-      await fetch("/api/agenda", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [holdSync]);
-
-  const saveMomentos = useCallback(async (items: MomentoItem[]) => {
-    setSaving(true);
-    holdSync();
-    setData((d) => ({ ...d, momentos: items }));
-    try {
-      await fetch("/api/momentos", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [holdSync]);
+  const saveChecklist = useCallback((items: ChecklistItem[]) => saveTab("checklist", "/api/checklist", items), [saveTab]);
+  const saveResp = useCallback((items: RespItem[]) => saveTab("resp", "/api/resp", items), [saveTab]);
+  const saveFaq = useCallback((items: FaqItem[]) => saveTab("faq", "/api/faq", items), [saveTab]);
+  const saveAgenda = useCallback((items: AgendaItem[]) => saveTab("agenda", "/api/agenda", items), [saveTab]);
+  const saveMomentos = useCallback((items: MomentoItem[]) => saveTab("momentos", "/api/momentos", items), [saveTab]);
 
   return { data, loading, error, saving, refresh: fetchAll, saveChecklist, saveResp, saveFaq, saveAgenda, saveMomentos };
 }
