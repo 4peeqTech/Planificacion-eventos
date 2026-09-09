@@ -35,6 +35,11 @@ export default function Home() {
   const [editingTaskText, setEditingTaskText] = useState("");
   const [notingTaskId, setNotingTaskId] = useState<string | null>(null);
   const [notingText, setNotingText] = useState("");
+  // Borradores locales para campos que solo se guardan al salir del campo
+  // (evita disparar un guardado por cada letra tipeada).
+  const [momentoTitleDrafts, setMomentoTitleDrafts] = useState<Record<string, string>>({});
+  const [respDraft, setRespDraft] = useState<{ stationId: string; text: string } | null>(null);
+  const [agendaDrafts, setAgendaDrafts] = useState<Record<string, { activity?: string; resp?: string }>>({});
 
   const momentosByPhase = useMemo(() => {
     const grouped: Record<string, typeof data.momentos> = { antes: [], durante: [], despues: [] };
@@ -570,8 +575,19 @@ export default function Home() {
                           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                             <div style={{ display: "flex", gap: 6 }}>
                               <input
-                                value={m.title}
-                                onChange={(e) => updateMomentoTitle(m.stationId, e.target.value)}
+                                value={momentoTitleDrafts[m.stationId] ?? m.title}
+                                onChange={(e) =>
+                                  setMomentoTitleDrafts((d) => ({ ...d, [m.stationId]: e.target.value }))
+                                }
+                                onBlur={() => {
+                                  const draft = momentoTitleDrafts[m.stationId];
+                                  if (draft !== undefined && draft !== m.title) updateMomentoTitle(m.stationId, draft);
+                                  setMomentoTitleDrafts((d) => {
+                                    const rest = { ...d };
+                                    delete rest[m.stationId];
+                                    return rest;
+                                  });
+                                }}
                                 style={{
                                   flex: 1,
                                   border: "1px solid #DCD3EA",
@@ -650,8 +666,18 @@ export default function Home() {
                         {isOpen && (
                           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
                             <input
-                              value={respByStation[m.stationId] || ""}
-                              onChange={(e) => updatePeople(m.stationId, e.target.value)}
+                              value={
+                                respDraft && respDraft.stationId === m.stationId
+                                  ? respDraft.text
+                                  : respByStation[m.stationId] || ""
+                              }
+                              onChange={(e) => setRespDraft({ stationId: m.stationId, text: e.target.value })}
+                              onBlur={() => {
+                                if (respDraft && respDraft.stationId === m.stationId) {
+                                  updatePeople(m.stationId, respDraft.text);
+                                  setRespDraft(null);
+                                }
+                              }}
                               placeholder="Responsables (separados por coma)"
                               style={{
                                 border: "1px solid #DCD3EA",
@@ -939,14 +965,36 @@ export default function Home() {
                   style={{ width: 90, border: "1px solid #DCD3EA", borderRadius: 7, padding: "6px 8px", fontSize: 12.5 }}
                 />
                 <input
-                  value={a.activity}
-                  onChange={(e) => updateAgendaField(a.id, "activity", e.target.value)}
+                  value={agendaDrafts[a.id]?.activity ?? a.activity}
+                  onChange={(e) =>
+                    setAgendaDrafts((d) => ({ ...d, [a.id]: { ...d[a.id], activity: e.target.value } }))
+                  }
+                  onBlur={() => {
+                    const draft = agendaDrafts[a.id]?.activity;
+                    if (draft !== undefined && draft !== a.activity) updateAgendaField(a.id, "activity", draft);
+                    setAgendaDrafts((d) => {
+                      const entry = { ...d[a.id] };
+                      delete entry.activity;
+                      return { ...d, [a.id]: entry };
+                    });
+                  }}
                   placeholder="Actividad"
                   style={{ flex: "1 1 200px", border: "1px solid #DCD3EA", borderRadius: 7, padding: "6px 8px", fontSize: 13 }}
                 />
                 <input
-                  value={a.resp}
-                  onChange={(e) => updateAgendaField(a.id, "resp", e.target.value)}
+                  value={agendaDrafts[a.id]?.resp ?? a.resp}
+                  onChange={(e) =>
+                    setAgendaDrafts((d) => ({ ...d, [a.id]: { ...d[a.id], resp: e.target.value } }))
+                  }
+                  onBlur={() => {
+                    const draft = agendaDrafts[a.id]?.resp;
+                    if (draft !== undefined && draft !== a.resp) updateAgendaField(a.id, "resp", draft);
+                    setAgendaDrafts((d) => {
+                      const entry = { ...d[a.id] };
+                      delete entry.resp;
+                      return { ...d, [a.id]: entry };
+                    });
+                  }}
                   placeholder="Responsable"
                   style={{ width: 160, border: "1px solid #DCD3EA", borderRadius: 7, padding: "6px 8px", fontSize: 12.5 }}
                 />
