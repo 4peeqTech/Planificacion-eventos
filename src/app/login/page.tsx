@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
 function LoginForm() {
@@ -50,9 +51,11 @@ function LoginForm() {
           fontFamily: "system-ui, sans-serif",
         }}
       >
-        <div style={{ textAlign: "center", fontSize: 28, marginBottom: 4 }}>🎤</div>
-        <h1 style={{ fontSize: 18, fontWeight: 700, textAlign: "center", margin: 0, color: "#15142B" }}>
-          Pymetón La Conferencia
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
+          <Image src="/pymeton-logo.png" alt="Pymetón" width={220} height={70} style={{ height: 56, width: "auto" }} priority />
+        </div>
+        <h1 style={{ fontSize: 14, fontWeight: 600, textAlign: "center", margin: 0, color: "#514C6B" }}>
+          La Conferencia
         </h1>
         <p style={{ fontSize: 13, color: "#514C6B", textAlign: "center", margin: 0 }}>
           Ingresá la clave del equipo para entrar

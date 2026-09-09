@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAllData } from "@/lib/useData";
 import type { ChecklistItem, MomentoItem, RespItem, AgendaItem } from "@/lib/types";
@@ -309,8 +310,8 @@ export default function Home() {
           flexWrap: "wrap",
         }}
       >
-        <span style={{ fontSize: 22 }}>🎤</span>
-        <h1 className="app-title" style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Pymetón La Conferencia</h1>
+        <Image src="/pymeton-logo.png" alt="Pymetón" width={132} height={42} style={{ height: 32, width: "auto" }} priority />
+        <h1 className="app-title" style={{ fontSize: 13, fontWeight: 600, margin: 0, color: "#514C6B" }}>La Conferencia</h1>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#514C6B" }}>
           {saving && <span>Guardando…</span>}
           {!saving && !loading && (
