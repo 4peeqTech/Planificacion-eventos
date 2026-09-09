@@ -5,11 +5,14 @@ const COOKIE_NAME = "pymeton_auth";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Dejar pasar siempre la propia página de login y sus assets.
+  // Dejar pasar siempre la propia página de login y sus assets (imágenes,
+  // ícono de la pestaña, etc.) — si no, el navegador los pide sin la cookie
+  // todavía y el middleware los redirige al login, rompiendo la imagen.
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon")
+    pathname.startsWith("/favicon") ||
+    /\.(png|jpg|jpeg|svg|webp|gif|ico)$/i.test(pathname)
   ) {
     return NextResponse.next();
   }
