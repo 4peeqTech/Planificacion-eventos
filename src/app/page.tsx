@@ -354,6 +354,7 @@ export default function Home() {
       </div>
 
       {view === "tareas" && (
+      <>
       <div className="app-filters" style={{ padding: "14px 20px 6px", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {["todas", ...PHASE_ORDER].map((p) => (
           <button
@@ -825,6 +826,7 @@ export default function Home() {
           })}
         </main>
       )}
+      </>
       )}
 
       {view === "agenda" && loading && (
