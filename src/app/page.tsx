@@ -32,6 +32,8 @@ export default function Home() {
   const [newMomentoTitle, setNewMomentoTitle] = useState<Record<string, string>>({});
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskText, setEditingTaskText] = useState("");
+  const [notingTaskId, setNotingTaskId] = useState<string | null>(null);
+  const [notingText, setNotingText] = useState("");
 
   const momentosByPhase = useMemo(() => {
     const grouped: Record<string, typeof data.momentos> = { antes: [], durante: [], despues: [] };
@@ -230,6 +232,17 @@ export default function Home() {
       saveChecklist(data.checklist.map((c) => (c.id === editingTaskId ? { ...c, text } : c)));
     }
     setEditingTaskId(null);
+  }
+
+  function startEditNote(item: ChecklistItem) {
+    setNotingTaskId(item.id);
+    setNotingText(item.notes || "");
+  }
+
+  function saveNote() {
+    if (!notingTaskId) return;
+    saveChecklist(data.checklist.map((c) => (c.id === notingTaskId ? { ...c, notes: notingText } : c)));
+    setNotingTaskId(null);
   }
 
   function updatePeople(stationId: string, peopleText: string) {
@@ -651,11 +664,15 @@ export default function Home() {
                                 <div
                                   key={t.id}
                                   style={{
+                                    padding: "6px 2px",
+                                    borderBottom: "1px solid #EFE9F5",
+                                  }}
+                                >
+                                <div
+                                  style={{
                                     display: "flex",
                                     alignItems: "flex-start",
                                     gap: 8,
-                                    padding: "6px 2px",
-                                    borderBottom: "1px solid #EFE9F5",
                                   }}
                                 >
                                   <input
@@ -724,6 +741,20 @@ export default function Home() {
                                     ✎
                                   </button>
                                   <button
+                                    onClick={() => (notingTaskId === t.id ? setNotingTaskId(null) : startEditNote(t))}
+                                    className="icon-btn"
+                                    style={{
+                                      all: "unset",
+                                      cursor: "pointer",
+                                      color: t.notes ? "#7764A9" : "#999",
+                                      fontSize: 12,
+                                      padding: "0 4px",
+                                    }}
+                                    aria-label="Nota"
+                                  >
+                                    🗒️
+                                  </button>
+                                  <button
                                     onClick={() => deleteTask(t.id)}
                                     className="icon-btn"
                                     style={{
@@ -737,6 +768,47 @@ export default function Home() {
                                   >
                                     ×
                                   </button>
+                                </div>
+                                {notingTaskId === t.id ? (
+                                  <textarea
+                                    autoFocus
+                                    value={notingText}
+                                    onChange={(e) => setNotingText(e.target.value)}
+                                    onBlur={saveNote}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Escape") setNotingTaskId(null);
+                                    }}
+                                    placeholder="Agregar nota o detalle…"
+                                    rows={2}
+                                    style={{
+                                      width: "100%",
+                                      marginTop: 4,
+                                      border: "1px solid #7764A9",
+                                      borderRadius: 6,
+                                      padding: "4px 6px",
+                                      fontSize: 12,
+                                      fontFamily: "inherit",
+                                      resize: "vertical",
+                                      boxSizing: "border-box",
+                                    }}
+                                  />
+                                ) : (
+                                  t.notes && (
+                                    <div
+                                      onClick={() => startEditNote(t)}
+                                      style={{
+                                        fontSize: 11.5,
+                                        color: "#7a7591",
+                                        marginTop: 3,
+                                        marginLeft: 24,
+                                        whiteSpace: "pre-wrap",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      🗒️ {t.notes}
+                                    </div>
+                                  )
+                                )}
                                 </div>
                               ))}
                             </div>
